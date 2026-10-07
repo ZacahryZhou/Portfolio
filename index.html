@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Portfolio of Zachary Zhou, first-year Computing Science student at SFU: AI agent systems, an e-commerce platform and full-stack web apps.">
+<meta property="og:title" content="Zachary Zhou Portfolio">
+<meta property="og:description" content="AI agent systems, an e-commerce platform and full-stack web apps.">
+<title>Zachary Zhou Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one 58rem column. Hero, then project rows split into a meta column and a detail column, then working principles, skills, contact. */
+:root {
+  --bg: #f4f7f7;
+  --surface: #ffffff;
+  --ink: #0f1f1f;
+  --muted: #4f6266;
+  --line: #d6e0e1;
+  --accent: #09766e;
+  --accent-soft: #e2f0ee;
+  --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1315; --surface: #111c1f; --ink: #e8f1f0; --muted: #9ab0b3;
+    --line: #213236; --accent: #4cc9bc; --accent-soft: #14282b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1315; --surface: #111c1f; --ink: #e8f1f0; --muted: #9ab0b3;
+  --line: #213236; --accent: #4cc9bc; --accent-soft: #14282b; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
+  padding-inline: 20px;
+  padding-block: 40px 64px;
+}
+.wrap { max-width: 58rem; margin-inline: auto; display: flex; flex-direction: column; gap: 56px; }
+a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+p { margin: 0; }
+ul { margin: 0; padding: 0; list-style: none; }
+
+/* hero */
+.hero { display: flex; flex-direction: column; gap: 20px; padding-top: 8px; }
+.kicker { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.hero h1 { font-size: clamp(2.4rem, 7vw, 4.2rem); line-height: 1.02; max-width: 16ch; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.lede { max-width: 38rem; font-size: 1.125rem; color: var(--muted); }
+.contact-row { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; font-family: var(--mono); font-size: 14px; }
+.copy {
+  font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 12px; cursor: pointer;
+}
+.copy:hover { border-color: var(--accent); }
+.email { user-select: all; }
+
+/* section heads */
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 8px; }
+.sec-head h2 { font-size: 1.5rem; }
+.sec-head span { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+
+/* project rows */
+.proj { display: grid; grid-template-columns: minmax(0, 17rem) minmax(0, 1fr); gap: 20px 40px; padding-block: 28px; border-bottom: 1px solid var(--line); }
+.proj:last-child { border-bottom: 0; }
+.meta { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.meta h3 { font-size: 1.5rem; line-height: 1.15; }
+.what { color: var(--muted); font-size: 0.95rem; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tags li { font-family: var(--mono); font-size: 12px; background: var(--accent-soft); color: var(--ink); padding: 2px 8px; border-radius: 4px; }
+.links { display: flex; flex-direction: column; gap: 4px; font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
+.detail { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.detail ul { display: flex; flex-direction: column; gap: 10px; }
+.detail li { position: relative; padding-left: 18px; }
+.detail li::before { content: ""; position: absolute; left: 0; top: 0.72em; width: 8px; height: 2px; background: var(--accent); }
+
+/* real flow strips (taken from the project READMEs) */
+.flow { display: flex; flex-wrap: wrap; gap: 6px; font-family: var(--mono); font-size: 12px; align-items: center; }
+.flow span { border: 1px solid var(--line); background: var(--surface); padding: 3px 8px; border-radius: 4px; }
+.flow span.gate { border-color: var(--accent); color: var(--accent); font-weight: 500; }
+.flow i { font-style: normal; color: var(--muted); }
+.flow-label { font-family: var(--mono); font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* principles */
+.principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 16px; }
+.principle { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.principle h3 { font-size: 1.1rem; }
+.principle p { color: var(--muted); font-size: 0.95rem; }
+.principle small { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+
+/* skills + education */
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 32px; }
+.kv { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 8px 16px; font-size: 0.95rem; }
+.kv dt { font-family: var(--mono); font-size: 13px; color: var(--muted); padding-top: 2px; }
+.kv dd { margin: 0; }
+.edu strong { font-family: var(--display); font-size: 1.15rem; display: block; }
+
+footer { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+@media (max-width: 720px) {
+  .proj { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .kv { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .kv dd { margin-bottom: 8px; }
+}
+html { color-scheme: light; }
+body { margin: 0; }
+[hidden] { display: none !important; }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <p class="kicker">Zachary Zhou · Burnaby, BC</p>
+    <h1>I build AI systems where a <em>person stays in charge</em>.</h1>
+    <p class="lede">First-year Computing Science student at Simon Fraser University. I work in Python and TypeScript, from web apps with real users and logins to multi-agent pipelines. Open to software engineering and AI/ML co-op roles and to freelance web projects.</p>
+    <div class="contact-row">
+      <a href="https://github.com/ZacahryZhou" target="_blank" rel="noopener">github.com/ZacahryZhou</a>
+      <span class="email" id="email">yixinzhou728817@gmail.com</span>
+      <button class="copy" id="copy" type="button">Copy email</button>
+    </div>
+  </header>
+
+  <main>
+    <section aria-labelledby="work">
+      <div class="sec-head"><h2 id="work">Projects</h2><span>6 projects, 2 live</span></div>
+
+      <article class="proj">
+        <div class="meta">
+          <h3>Kiro</h3>
+          <p class="what">An AI agent that does the admin of a tutoring business.</p>
+          <ul class="tags"><li>Next.js</li><li>React</li><li>TypeScript</li><li>Prisma</li><li>NextAuth</li><li>Docker</li></ul>
+          <div class="links"><a href="https://github.com/ZacahryZhou/Kiro" target="_blank" rel="noopener">github.com/ZacahryZhou/Kiro</a></div>
+        </div>
+        <div class="detail">
+          <p class="flow-label">How every teacher write happens</p>
+          <div class="flow" aria-label="AI proposes, teacher confirms, service function writes">
+            <span>AI proposal</span><i>→</i><span class="gate">teacher confirms</span><i>→</i><span>service function</span><i>→</i><span>data written</span>
+          </div>
+          <ul>
+            <li>Takes attendance, reschedules classes, drafts quizzes and answers student questions. The AI only proposes changes. Nothing is written until a teacher confirms.</li>
+            <li>Checks every citation in an answer against the teacher's own materials with code. If the quote is not there, the agent says it could not find it.</li>
+            <li>Isolates data by signed-in identity: teachers see only their courses, students only their own data. Student messages and text read from photos are treated as untrusted input.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="proj">
+        <div class="meta">
+          <h3>Popboxx &amp; Twiisted</h3>
+          <p class="what">A multi-merchant e-commerce platform, and a live demo store built on it.</p>
+          <ul class="tags"><li>Supabase</li></ul>
+          <div class="links"><a href="https://popboxx.ca/twiisted" target="_blank" rel="noopener">popboxx.ca/twiisted</a></div>
+        </div>
+        <div class="detail">
+          <ul>
+            <li>Popboxx gives each merchant its own storefront under one domain.</li>
+            <li>Twiisted is a live apparel demo store on the platform, with product pages, shopping cart, checkout and customer ratings.</li>
+            <li>AI agents on the platform can only retrieve and organize information or fill existing fields. They never access the database directly or change site code.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="proj">
+        <div class="meta">
+          <h3>EduSync</h3>
+          <p class="what">An AI-native workspace for tutors and small classes.</p>
+          <ul class="tags"><li>React</li><li>TypeScript</li><li>Vite</li><li>Tailwind CSS</li><li>Flask</li><li>Supabase</li></ul>
+          <div class="links">
+            <a href="https://edu-sync-gamma.vercel.app" target="_blank" rel="noopener">edu-sync-gamma.vercel.app</a>
+            <a href="https://github.com/ZacahryZhou/EduSync" target="_blank" rel="noopener">github.com/ZacahryZhou/EduSync</a>
+          </div>
+        </div>
+        <div class="detail">
+          <ul>
+            <li>Deployed on Vercel with three roles (admin, teacher, student) and an English / Simplified Chinese interface.</li>
+            <li>Backend designed as incremental sprint tickets: PostgreSQL schema, Flask API blueprints, Supabase authentication (JWT) and email notifications.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="proj">
+        <div class="meta">
+          <h3>PIP</h3>
+          <p class="what">A text-to-video multi-agent pipeline.</p>
+          <ul class="tags"><li>Python</li><li>pytest</li></ul>
+          <div class="links"><a href="https://github.com/ZacahryZhou/PIP" target="_blank" rel="noopener">github.com/ZacahryZhou/PIP</a></div>
+        </div>
+        <div class="detail">
+          <ul>
+            <li>Turns a text prompt and images into a short video through storyboard generation, per-scene agents and a human approval gate.</li>
+            <li>Every stage reads and writes JSON artifacts. Built against mock APIs first, with automated tests, before any real service is connected.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="proj">
+        <div class="meta">
+          <h3>SMAS</h3>
+          <p class="what">An Instagram content agent system.</p>
+          <ul class="tags"><li>Python</li><li>LangGraph</li><li>Telegram</li></ul>
+          <div class="links"><a href="https://github.com/ZacahryZhou/SMAS" target="_blank" rel="noopener">github.com/ZacahryZhou/SMAS</a></div>
+        </div>
+        <div class="detail">
+          <p class="flow-label">The seven stages</p>
+          <div class="flow" aria-label="Seven pipeline stages ending in human review">
+            <span>classify</span><i>→</i><span>brief</span><i>→</i><span>caption</span><i>→</i><span>visual direction</span><i>→</i><span>render</span><i>→</i><span>preview</span><i>→</i><span class="gate">human review</span>
+          </div>
+          <ul>
+            <li>Turns a plain-language request into an Instagram draft, run from a command line, a Telegram bot or a mobile bridge.</li>
+            <li>Approve, skip or edit gates mean no draft is finalized without review.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="proj">
+        <div class="meta">
+          <h3>PAHS</h3>
+          <p class="what">A personal multi-agent assistant.</p>
+          <ul class="tags"><li>Python</li><li>LangGraph</li></ul>
+          <div class="links"><a href="https://github.com/ZacahryZhou/PAHS" target="_blank" rel="noopener">github.com/ZacahryZhou/PAHS</a></div>
+        </div>
+        <div class="detail">
+          <ul>
+            <li>An orchestrator writes an execution plan and coordinates specialized tools, including SMAS and PIP.</li>
+            <li>A governance layer validates plans, enforces rules and budget limits, and pauses for human review between phases.</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section aria-labelledby="how" style="margin-top: 56px;">
+      <div class="sec-head"><h2 id="how">How I build</h2><span>patterns across the projects</span></div>
+      <div class="principles" style="margin-top: 16px;">
+        <div class="principle"><h3>Propose, then confirm</h3><p>The AI prepares a change. A person approves it before anything is written.</p><small>Kiro · SMAS · PAHS · PIP</small></div>
+        <div class="principle"><h3>Facts come from code</h3><p>Citations are checked against the source text. The model writes the words, not the facts.</p><small>Kiro</small></div>
+        <div class="principle"><h3>Mock first, then real</h3><p>Each pipeline stage is tested against mock services before a real API is connected.</p><small>PIP</small></div>
+        <div class="principle"><h3>Isolate by identity</h3><p>Who is asking comes only from the signed-in session, never from the message.</p><small>Kiro</small></div>
+      </div>
+    </section>
+
+    <section class="two" aria-label="Skills and education" style="margin-top: 56px;">
+      <div>
+        <div class="sec-head"><h2>Skills</h2></div>
+        <dl class="kv" style="margin-top: 16px;">
+          <dt>Languages</dt><dd>Python, TypeScript, JavaScript, SQL; Java (learning)</dd>
+          <dt>AI &amp; agents</dt><dd>LLM tool calling, LangGraph, multi-agent orchestration, grounded generation, citation verification, human-in-the-loop systems</dd>
+          <dt>Web &amp; backend</dt><dd>React, Next.js, Flask, Prisma, PostgreSQL, Supabase, Tailwind CSS</dd>
+          <dt>Tools</dt><dd>Git, GitHub, Docker, Vercel, pytest, VS Code, Telegram Bot API</dd>
+        </dl>
+      </div>
+      <div class="edu">
+        <div class="sec-head"><h2>Education</h2></div>
+        <p style="margin-top: 16px;"><strong>Simon Fraser University</strong>BSc, Computing Science · Fall 2026 to present</p>
+        <p style="margin-top: 8px; color: var(--muted); font-size: 0.95rem;">Coursework: CMPT 120 Introduction to Programming, MACM 101 Discrete Mathematics, MATH 150 Calculus.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>Zachary Zhou · Burnaby, BC</footer>
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById('copy');
+  var email = document.getElementById('email');
+  btn.addEventListener('click', function () {
+    var text = email.textContent.trim();
+    function fallback() {
+      var r = document.createRange();
+      r.selectNodeContents(email);
+      var s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+      btn.textContent = 'Press copy now';
+    }
+    try {
+      navigator.clipboard.writeText(text).then(function () {
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = 'Copy email'; }, 1800);
+      }, fallback);
+    } catch (e) { fallback(); }
+  });
+})();
+</script>
+</body>
+</html>
