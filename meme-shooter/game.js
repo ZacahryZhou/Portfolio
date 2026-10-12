@@ -13,24 +13,147 @@ class Game {
     this.ctx = canvas.getContext('2d');
 
     this.debug = /[?&]debug\b/.test(location.search);
-    this.state = 'PLAYING';
-    this.time = 0;          // 动画用的总时间
-    this.camX = 0;
-    this.player = new Player();
+    this.godMode = false;             // 调试用：无敌
+    this.time = 0;                    // 动画用的总时间
     this.fps = 60;
+    this.highScore = 0;
+
+    this.player = new Player();
+    this.bullets = new Pool(() => new Bullet(), 200);
+    this.enemies = new Pool(() => new Enemy(), 80);
+    this.particles = new ParticleSystem();
+
+    this.startRun();
   }
+
+  // 开始新的一局（重置所有运行时状态）
+  startRun() {
+    this.state = 'PLAYING';
+    this.camX = 0;
+    this.shakeAmp = 0;
+    this.stats = { score: 0, kills: 0, hits: 0, time: 0 };
+    this.player.reset();
+    this.bullets.clear();
+    this.enemies.clear();
+    this.particles.clear();
+    this.spawnT = 1.5;                // M2 临时刷怪计时，M3 换成关卡数据
+    this.overT = 0;
+  }
+
+  addShake(a) { this.shakeAmp = Math.max(this.shakeAmp, a); }
 
   // ---------- 更新 ----------
   update(dt) {
     this.time += dt;
     this.fps = lerp(this.fps, 1 / Math.max(dt, 0.0001), 0.05);
+    this.shakeAmp *= Math.pow(0.001, dt);      // 抖动衰减
+    if (this.shakeAmp < 0.2) this.shakeAmp = 0;
 
-    const bounds = { minX: this.camX + 30, maxX: LEVEL_LEN - 30 };
-    this.player.update(dt, Input, bounds);
+    if (this.state === 'GAMEOVER') {
+      this.overT += dt;
+      this.particles.update(dt);
+      if (Input.wasPressed('restart')) this.startRun();
+      return;
+    }
+
+    const p = this.player;
+    this.stats.time += dt;
+
+    p.update(dt, Input, { minX: this.camX + 30, maxX: LEVEL_LEN - 30 });
+    if (!p.dead && Input.isDown('shoot') && p.fireCd <= 0) this.firePlayer();
+
+    this.updateSpawns(dt);
+    this.enemies.forEach(e => e.update(dt, this));
+    this.bullets.forEach(b => b.update(dt, this));
+    this.collide();
+    this.particles.update(dt);
 
     // 镜头跟随主角（主角在屏幕左偏 1/3 处），限制在关卡范围内
-    const camTarget = clamp(this.player.x - 340, 0, LEVEL_LEN - W);
+    const camTarget = clamp(p.x - 340, 0, LEVEL_LEN - W);
     this.camX = lerp(this.camX, camTarget, Math.min(1, 10 * dt));
+
+    if (p.dead && p.deathT > 1.2) { this.state = 'GAMEOVER'; this.overT = 0; }
+  }
+
+  // M2 临时刷怪：每隔一会从右边冒一只爬行 Bug
+  updateSpawns(dt) {
+    this.spawnT -= dt;
+    if (this.spawnT <= 0) {
+      this.spawnT = rand(1.4, 2.4);
+      const e = this.enemies.spawn();
+      if (e) e.init('crawler', this.camX + W + 40, GROUND_Y);
+    }
+  }
+
+  firePlayer() {
+    const p = this.player;
+    p.fireCd = PLAYER_CFG.fireInterval * (p.fx.coffee > 0 ? 0.5 : 1);
+    const offsets = p.fx.double > 0 ? [-9, 9] : [0];      // 双发：上下错开
+    for (const o of offsets) {
+      const b = this.bullets.spawn();
+      if (b) b.init(Math.random() < 0.5 ? 'smile' : 'brace', p.x + p.facing * 36, p.y - 42 + o, p.facing * PLAYER_CFG.bulletSpeed, 0);
+    }
+  }
+
+  // ---------- 碰撞（圆形 / AABB，不用像素检测） ----------
+  collide() {
+    const p = this.player;
+    const bl = this.bullets.items, en = this.enemies.items;
+
+    for (let i = 0; i < bl.length; i++) {
+      const b = bl[i];
+      if (!b.active) continue;
+      if (b.friendly) {
+        for (let j = 0; j < en.length; j++) {
+          const e = en[j];
+          if (!e.active) continue;
+          const h = e.hit;
+          if (circleHit(b.x, b.y, b.r, h.x, h.y, h.r)) { b.active = false; this.damageEnemy(e, 1, b.x, b.y); break; }
+        }
+      } else if (!p.dead && circleHit(b.x, b.y, b.r, p.coreX, p.coreY, p.coreR)) {
+        b.active = false;
+        this.hitPlayer(b.x);
+      }
+    }
+
+    if (!p.dead) {
+      for (let j = 0; j < en.length; j++) {
+        const e = en[j];
+        if (!e.active) continue;
+        const h = e.hurt;
+        if (circleHit(h.x, h.y, h.r, p.coreX, p.coreY, p.coreR)) this.hitPlayer(e.x);
+      }
+    }
+  }
+
+  damageEnemy(e, dmg, hx, hy) {
+    if (e.takeHit(dmg)) this.killEnemy(e);
+    else this.particles.burst(hx, hy, 4, ['#fff', '#ffe08a'], { maxSpeed: 160, maxSize: 5, life: 0.35 });
+  }
+
+  killEnemy(e) {
+    e.active = false;
+    const c = e.hit;
+    this.particles.burst(c.x, c.y, 14, ['#9be564', '#56a832', '#3f7d1f', '#ffd166', '#fff']);
+    this.addScore(100, c.x, c.y - 30);
+    this.stats.kills++;
+  }
+
+  addScore(n, x, y) {
+    this.stats.score += n;
+    if (x !== undefined) this.particles.text(x, y, '+' + n, '#ffe08a', 20);
+  }
+
+  hitPlayer(srcX) {
+    const p = this.player;
+    if (p.invuln > 0 || p.dead || this.godMode) return;
+    p.invuln = PLAYER_CFG.invuln;
+    p.hp--;
+    this.stats.hits++;
+    this.addShake(9);
+    this.particles.burst(p.coreX, p.coreY, 10, ['#ff3860', '#fff', '#ffd166'], { maxSpeed: 260 });
+    if (p.hp <= 0) p.die();
+    else p.knock(p.x >= srcX ? 1 : -1);
   }
 
   // ---------- 绘制 ----------
@@ -40,14 +163,32 @@ class Game {
     Background.draw(ctx, this.camX);
 
     ctx.save();
-    ctx.translate(-Math.round(this.camX), 0);
+    const sx = this.shakeAmp ? rand(-this.shakeAmp, this.shakeAmp) : 0;
+    const sy = this.shakeAmp ? rand(-this.shakeAmp, this.shakeAmp) : 0;
+    ctx.translate(-Math.round(this.camX) + sx, sy);
+    this.enemies.forEach(e => e.draw(ctx));
     this.player.draw(ctx, this.time);
+    this.bullets.forEach(b => b.draw(ctx));
+    this.particles.draw(ctx);
     ctx.restore();
+
+    UI.drawHUD(ctx, this);
+
+    if (this.state === 'GAMEOVER') this.drawGameOverPlaceholder(ctx);   // M7 换成正式结算页
 
     if (this.debug) {
       ctx.fillStyle = '#000'; ctx.font = '14px monospace'; ctx.textAlign = 'left';
-      ctx.fillText('FPS ' + this.fps.toFixed(0) + '  x=' + this.player.x.toFixed(0), 10, 20);
+      ctx.fillText('FPS ' + this.fps.toFixed(0) + '  x=' + this.player.x.toFixed(0) +
+        '  bullets=' + this.bullets.count() + ' enemies=' + this.enemies.count(), 10, 76);
     }
+  }
+
+  drawGameOverPlaceholder(ctx) {
+    ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center'; ctx.font = 'bold 48px ' + FONT;
+    strokeText(ctx, '你被 Deadline 抓住了', W / 2, H / 2 - 10);
+    ctx.font = '22px ' + FONT;
+    strokeText(ctx, '得分 ' + this.stats.score + '    按 R 再来一次', W / 2, H / 2 + 40);
   }
 }
 

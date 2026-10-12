@@ -14,6 +14,31 @@ class Player {
     this.walkT = 0;
     this.coyote = 0;            // 离地后短暂仍可起跳
     this.jumpBuf = 0;           // 提前按跳跃也算数
+
+    this.hp = PLAYER_CFG.maxHp;
+    this.invuln = 0;            // 被击中后的无敌时间
+    this.fireCd = 0;
+    this.dead = false;
+    this.deathT = 0;
+    // 道具状态（M5 接入）
+    this.fx = { coffee: 0, double: 0 };   // 剩余秒数
+    this.shield = false;
+    this.ctrlz = 0;
+  }
+
+  // 被击退：往后弹一小下
+  knock(dir) {
+    this.vy = -320;
+    this.onGround = false;
+    this.vx = dir * 320;
+  }
+
+  die() {
+    this.dead = true;
+    this.deathT = 0;
+    this.vy = -520;
+    this.vx = -this.facing * 120;
+    this.onGround = false;
   }
 
   // 受击判定：一个比头像小一圈的圆，擦边不算中
@@ -22,8 +47,20 @@ class Player {
   get coreR() { return PLAYER_CFG.coreR; }
 
   update(dt, input, bounds) {
+    this.invuln = Math.max(0, this.invuln - dt);
+    this.fireCd = Math.max(0, this.fireCd - dt);
+    for (const k in this.fx) this.fx[k] = Math.max(0, this.fx[k] - dt);
+
+    if (this.dead) {            // 死亡：被打飞然后掉出屏幕
+      this.deathT += dt;
+      this.vy += GRAVITY * 0.6 * dt;
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      return;
+    }
+
     const dir = (input.isDown('right') ? 1 : 0) - (input.isDown('left') ? 1 : 0);
-    const target = dir * PLAYER_CFG.speed;
+    const target = dir * PLAYER_CFG.speed * (this.fx.coffee > 0 ? 1.3 : 1);
     this.vx += (target - this.vx) * Math.min(1, 18 * dt);   // 轻微惯性，手感不生硬
     if (dir) this.facing = dir;
 
@@ -53,12 +90,20 @@ class Player {
     const x = this.x, y = this.y;
     const h = GROUND_Y - y;
 
+    if (this.dead) {            // 死亡：只剩一颗翻滚的头
+      Assets.drawHead(ctx, 'player', x, y - 40, PLAYER_CFG.headD, this.deathT * 9);
+      return;
+    }
+
     // 影子
     ctx.save();
     ctx.globalAlpha = 0.28 * Math.max(0.25, 1 - h / 220);
     ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.ellipse(x, GROUND_Y + 4, 24 * Math.max(0.5, 1 - h / 400), 6, 0, 0, TAU); ctx.fill();
     ctx.restore();
+
+    // 无敌闪烁
+    if (this.invuln > 0 && Math.floor(this.invuln * 14) % 2 === 0) return;
 
     // 腿
     const moving = Math.abs(this.vx) > 10 && this.onGround;
@@ -93,5 +138,16 @@ class Player {
     const bob = moving ? Math.abs(Math.sin(this.walkT * 16)) * -3 : Math.sin(t * 3) * 1.2;
     const tilt = this.vx / PLAYER_CFG.speed * 0.12;
     Assets.drawHead(ctx, 'player', x, y - 70 + bob, PLAYER_CFG.headD, tilt);
+
+    // 护盾泡泡
+    if (this.shield) {
+      const pulse = 1 + Math.sin(t * 6) * 0.04;
+      ctx.save();
+      ctx.fillStyle = 'rgba(80,170,255,0.22)'; ctx.strokeStyle = 'rgba(140,210,255,0.9)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(x, y - 54, 48 * pulse, 62 * pulse, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.beginPath(); ctx.ellipse(x - 20, y - 86, 8, 14, -0.5, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
   }
 }
