@@ -1,0 +1,49 @@
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', sans-serif;
+  background: #f6f6f4;
+  color: #1c1c1a;
+}
+.panel {
+  /* The ATIP page fills the left of the window; this panel sits on the right. */
+  margin-left: auto;
+  width: 400px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-left: 1px solid #ddd;
+  background: #fbfbfa;
+}
+header { display: flex; align-items: center; justify-content: space-between; }
+h1 { font-size: 16px; margin: 0; }
+h2 { font-size: 12px; margin: 0; text-transform: uppercase; letter-spacing: .04em; color: #666; }
+.row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.badge { padding: 2px 8px; border-radius: 99px; background: #e6e6e3; font-size: 12px; }
+.badge.on { background: #d8f0dc; color: #1d6b2b; }
+.muted { color: #666; margin: 0; }
+.small { font-size: 12px; }
+.warn { color: #9a5b00; margin: 6px 0 0; font-size: 12px; }
+.ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.client { display: grid; grid-template-columns: 72px 1fr; gap: 3px 8px; margin: 0; }
+.client dt { color: #777; }
+.client dd { margin: 0; word-break: break-word; }
+button {
+  font: inherit; padding: 4px 10px; border: 1px solid #c9c9c5; border-radius: 6px;
+  background: #fff; cursor: pointer;
+}
+button:hover:not(:disabled) { background: #f0f0ed; }
+button:disabled { opacity: .45; cursor: default; }
+.controls { display: flex; gap: 8px; }
+.controls button { flex: 1; padding: 9px 0; font-weight: 600; }
+button.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+button.primary:hover:not(:disabled) { background: #1a5fcb; }
+button.danger { background: #fff; border-color: #d33; color: #d33; }
+.log-section { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.log {
+  flex: 1; min-height: 0; margin: 0; padding: 8px; overflow: auto;
+  background: #161615; color: #d7d7d2; border-radius: 6px;
+  font: 11.5px/1.5 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; word-break: break-all;
+}
