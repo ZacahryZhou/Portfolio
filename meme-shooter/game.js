@@ -14,7 +14,10 @@ class Game {
     this.godMode = false;             // 调试用：无敌
     this.time = 0;                    // 动画用的总时间
     this.fps = 60;
-    this.highScore = 0;
+    this.highScore = Store.loadHigh();
+    this.newRecord = false;
+    this.endLine = '';
+    this.titleT = 0;
 
     this.player = new Player();
     this.bullets = new Pool(() => new Bullet(), 200);
@@ -29,6 +32,7 @@ class Game {
     this.lastLine = {};
     this.deaths = 0;                  // 累计死亡次数：每死一次，下一次 Boss 血量 -10%（最低 50%）
     this.startRun();
+    this.state = 'TITLE';             // 先停在标题页
   }
 
   // 开始新的一局（重置所有运行时状态）
@@ -51,7 +55,44 @@ class Game {
     this.powerups.clear();
     this.heartOwed = false;           // 只剩 1 颗心时，下一个被打死的小兵必掉爱心
     this.flashT = 0;                  // Ctrl+Z 的全屏白闪
+    this._confettiDone = false;
+    this.newRecord = false;
     this.overT = 0;
+  }
+
+  // ---------- 画面切换 ----------
+  beginPlay() {
+    this.startRun();
+    this.sfx('menu');
+    this.say('start', 'player', { force: true });
+  }
+
+  retry() {
+    this.beginPlay();
+  }
+
+  toTitle() {
+    this.startRun();
+    this.state = 'TITLE';
+    this.titleT = 0;
+    GameAudio.stopSpeech();
+  }
+
+  // 一局结束（失败或通关）：结算最高分
+  finishRun() {
+    this.newRecord = this.stats.score > this.highScore;
+    if (this.newRecord) { this.highScore = this.stats.score; Store.saveHigh(this.highScore); }
+  }
+
+  updateResultInput() {
+    let act = null;
+    if (Input.wasPressed('restart') || Input.wasPressed('confirm')) act = 'again';
+    else if (Input.wasPressed('pause')) act = 'title';        // Esc
+    for (const c of Input.clicks) {
+      for (const b of Screens.buttons) if (c.x >= b.x && c.x <= b.x + b.w && c.y >= b.y && c.y <= b.y + b.h) act = b.id;
+    }
+    if (act === 'again') this.retry();
+    else if (act === 'title') this.toTitle();
   }
 
   addShake(a) { this.shakeAmp = Math.max(this.shakeAmp, a); }
@@ -75,6 +116,7 @@ class Game {
 
   // ---------- 更新 ----------
   update(dt) {
+    this.realDt = dt;
     this.fps = lerp(this.fps, 1 / Math.max(dt, 0.0001), 0.05);   // 用真实 dt 算帧率
     // 击败 Boss 后的慢动作：世界时间放慢到 30%，计时用真实时间
     if (this.slowT > 0) {
@@ -89,10 +131,16 @@ class Game {
     this.shakeAmp *= Math.pow(0.001, dt);      // 抖动衰减
     if (this.shakeAmp < 0.2) this.shakeAmp = 0;
 
+    if (this.state === 'TITLE') {
+      this.titleT += dt;
+      if (Input.anyPress && !Input.wasPressed('mute') && this.titleT > 0.3) this.beginPlay();
+      return;
+    }
+
     if (this.state === 'GAMEOVER' || this.state === 'WIN') {
       this.overT += dt;
       this.particles.update(dt);
-      if (Input.wasPressed('restart')) this.startRun();
+      if (this.overT > 0.8) this.updateResultInput();
       return;
     }
 
@@ -126,6 +174,7 @@ class Game {
       this.state = 'GAMEOVER'; this.overT = 0;
       this.deaths++;
       this.sfx('lose');
+      this.finishRun();
       this.endLine = this.say('gameover', 'player', { force: true });
     }
   }
@@ -179,6 +228,7 @@ class Game {
     this.state = 'WIN';
     this.overT = 0;
     this.sfx('win');
+    this.finishRun();
     this.endLine = this.say('win', 'player', { force: true });
     this.boss.state = 'gone';
     this.deaths = 0;                  // 通关后重置「死亡减血」
@@ -368,6 +418,11 @@ class Game {
   draw() {
     const ctx = this.ctx;
     ctx.setTransform(this.pixelScale, 0, 0, this.pixelScale, 0, 0);
+
+    if (this.state === 'TITLE') { Screens.drawTitle(ctx, this); return; }
+    if (this.state === 'GAMEOVER') { Screens.drawGameOver(ctx, this); return; }
+    if (this.state === 'WIN') { Screens.drawWin(ctx, this); return; }
+
     Background.draw(ctx, this.camX, this.time, this.mood);
 
     ctx.save();
@@ -388,8 +443,6 @@ class Game {
     if (this.banner) UI.drawBanner(ctx, this.banner);
     if (this.subtitle) UI.drawSubtitle(ctx, this.subtitle);
 
-    if (this.state === 'GAMEOVER') this.drawGameOverPlaceholder(ctx);   // M7 换成正式结算页
-    if (this.state === 'WIN') this.drawWinPlaceholder(ctx);
 
     if (this.debug) {
       ctx.fillStyle = '#000'; ctx.font = '14px monospace'; ctx.textAlign = 'left';
@@ -397,22 +450,6 @@ class Game {
         '  pu=' + this.powerups.count() + '  bullets=' + this.bullets.count() + ' enemies=' + this.enemies.count() +
         (this.boss ? '  boss=' + this.boss.hp + '/' + this.boss.maxHp + ' ' + this.boss.state + ' p' + this.boss.phase : ''), 10, H - 10);
     }
-  }
-
-  drawWinPlaceholder(ctx) {
-    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, W, H);
-    ctx.textAlign = 'center'; ctx.font = 'bold 48px ' + FONT;
-    strokeText(ctx, 'Deadline 被你搞定了', W / 2, H / 2 - 10, '#ffe08a');
-    ctx.font = '22px ' + FONT;
-    strokeText(ctx, '得分 ' + this.stats.score + '    按 R 再来一次', W / 2, H / 2 + 40);
-  }
-
-  drawGameOverPlaceholder(ctx) {
-    ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(0, 0, W, H);
-    ctx.textAlign = 'center'; ctx.font = 'bold 48px ' + FONT;
-    strokeText(ctx, '你被 Deadline 抓住了', W / 2, H / 2 - 10);
-    ctx.font = '22px ' + FONT;
-    strokeText(ctx, '得分 ' + this.stats.score + '    按 R 再来一次', W / 2, H / 2 + 40);
   }
 }
 
