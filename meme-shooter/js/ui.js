@@ -32,7 +32,32 @@ const UI = {
     ctx.textAlign = 'right';
     ctx.font = 'bold 26px ' + FONT;
     strokeText(ctx, String(game.stats.score).padStart(6, '0'), W - 20, 38);
+    // 关卡进度条
+    const bx = W / 2 - 110, by = 24, bw = 220;
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; rrPath(ctx, bx, by, bw, 8, 4); ctx.fill();
+    const prog = clamp(p.x / game.level.length, 0, 1);
+    ctx.fillStyle = '#ffd166'; rrPath(ctx, bx, by, Math.max(8, bw * prog), 8, 4); ctx.fill();
+    ctx.fillStyle = '#ff3860'; ctx.beginPath(); ctx.arc(bx + bw, by + 4, 8, 0, TAU); ctx.fill();   // 终点 = Boss
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(bx + bw * prog, by + 4, 6, 0, TAU); ctx.fill();
+    ctx.textAlign = 'center'; ctx.font = '12px ' + FONT;
+    strokeText(ctx, game.level.def.name, W / 2, by + 28, '#fff', 'rgba(0,0,0,0.7)', 3);
+
+    ctx.textAlign = 'right';
     ctx.font = '14px ' + FONT;
     strokeText(ctx, '最高 ' + String(game.highScore).padStart(6, '0'), W - 20, 58, '#ffe08a', 'rgba(0,0,0,0.75)', 4);
+  },
+
+  // 屏幕中央的大字提示（先放大弹出，再淡出）
+  drawBanner(ctx, b) {
+    const k = clamp(b.t / 0.25, 0, 1), fade = clamp((b.dur - b.t) / 0.4, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = fade;
+    ctx.translate(W / 2, H * 0.3);
+    ctx.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.font = 'bold 56px ' + FONT;
+    strokeText(ctx, b.text, 0, 0, '#ffe08a', 'rgba(0,0,0,0.8)', 8);
+    if (b.sub) { ctx.font = '22px ' + FONT; strokeText(ctx, b.sub, 0, 40); }
+    ctx.restore();
   }
 };

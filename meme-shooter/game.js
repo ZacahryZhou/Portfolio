@@ -1,8 +1,6 @@
 'use strict';
 // 游戏主体：状态机、主循环、画面切换。
 
-const LEVEL_LEN = 4800;   // M3 会改成从 LEVELS 里读
-
 class Game {
   constructor(canvas) {
     this.canvas = canvas;
@@ -23,12 +21,18 @@ class Game {
     this.enemies = new Pool(() => new Enemy(), 80);
     this.particles = new ParticleSystem();
 
+    Background.init(this.pixelScale);
+    this.levelIndex = 0;
     this.startRun();
   }
 
   // 开始新的一局（重置所有运行时状态）
   startRun() {
     this.state = 'PLAYING';
+    this.level = new Level(LEVELS[this.levelIndex]);
+    this.bossLocked = false;
+    this.mood = 0;                    // 背景氛围：0 平时，1 Boss 房间
+    this.banner = null;               // 屏幕中央的大字提示
     this.camX = 0;
     this.shakeAmp = 0;
     this.stats = { score: 0, kills: 0, hits: 0, time: 0 };
@@ -36,7 +40,6 @@ class Game {
     this.bullets.clear();
     this.enemies.clear();
     this.particles.clear();
-    this.spawnT = 1.5;                // M2 临时刷怪计时，M3 换成关卡数据
     this.overT = 0;
   }
 
@@ -59,30 +62,39 @@ class Game {
     const p = this.player;
     this.stats.time += dt;
 
-    p.update(dt, Input, { minX: this.camX + 30, maxX: LEVEL_LEN - 30 });
+    const lv = this.level;
+    p.update(dt, Input, {
+      minX: this.bossLocked ? lv.lockX + 20 : this.camX + 30,
+      maxX: lv.length - 30
+    });
     if (!p.dead && Input.isDown('shoot') && p.fireCd <= 0) this.firePlayer();
 
-    this.updateSpawns(dt);
+    if (!p.dead) lv.update(this);
     this.enemies.forEach(e => e.update(dt, this));
     this.bullets.forEach(b => b.update(dt, this));
     this.collide();
     this.particles.update(dt);
 
     // 镜头跟随主角（主角在屏幕左偏 1/3 处），限制在关卡范围内
-    const camTarget = clamp(p.x - 340, 0, LEVEL_LEN - W);
-    this.camX = lerp(this.camX, camTarget, Math.min(1, 10 * dt));
+    const camTarget = this.bossLocked ? lv.lockX : clamp(p.x - 340, 0, lv.lockX);
+    this.camX = lerp(this.camX, camTarget, Math.min(1, (this.bossLocked ? 4 : 10) * dt));
+    this.mood = lerp(this.mood, this.bossLocked ? 1 : 0, Math.min(1, 2 * dt));
+    if (this.banner) { this.banner.t += dt; if (this.banner.t > this.banner.dur) this.banner = null; }
 
     if (p.dead && p.deathT > 1.2) { this.state = 'GAMEOVER'; this.overT = 0; }
   }
 
-  // M2 临时刷怪：每隔一会从右边冒一只爬行 Bug
-  updateSpawns(dt) {
-    this.spawnT -= dt;
-    if (this.spawnT <= 0) {
-      this.spawnT = rand(1.4, 2.4);
-      const e = this.enemies.spawn();
-      if (e) e.init('crawler', this.camX + W + 40, GROUND_Y);
-    }
+  // 按关卡数据刷一只怪（x 是屏幕右侧外的世界坐标）
+  spawnEnemy(spawn, x) {
+    const e = this.enemies.spawn();
+    if (e) e.init(spawn.t, x, GROUND_Y);
+  }
+
+  // 走到关卡尽头：锁屏，进 Boss 房间（Boss 在 M4 加入）
+  enterBossRoom() {
+    this.bossLocked = true;
+    this.state = 'BOSS';
+    this.banner = { text: 'Boss 房间', sub: '（Boss 将在 M4 登场）', t: 0, dur: 2.5 };
   }
 
   firePlayer() {
@@ -121,7 +133,7 @@ class Game {
         const e = en[j];
         if (!e.active) continue;
         const h = e.hurt;
-        if (circleHit(h.x, h.y, h.r, p.coreX, p.coreY, p.coreR)) this.hitPlayer(e.x);
+        if (h && circleHit(h.x, h.y, h.r, p.coreX, p.coreY, p.coreR)) this.hitPlayer(e.x);
       }
     }
   }
@@ -134,6 +146,11 @@ class Game {
   killEnemy(e) {
     e.active = false;
     const c = e.hit;
+    if (e.type === 'crate') {
+      this.particles.burst(c.x, c.y, 16, ['#c98a4b', '#8a5a2b', '#6b4220', '#ffd60a']);
+      this.addScore(50, c.x, c.y - 30);
+      return;
+    }
     this.particles.burst(c.x, c.y, 14, ['#9be564', '#56a832', '#3f7d1f', '#ffd166', '#fff']);
     this.addScore(100, c.x, c.y - 30);
     this.stats.kills++;
@@ -160,7 +177,7 @@ class Game {
   draw() {
     const ctx = this.ctx;
     ctx.setTransform(this.pixelScale, 0, 0, this.pixelScale, 0, 0);
-    Background.draw(ctx, this.camX);
+    Background.draw(ctx, this.camX, this.time, this.mood);
 
     ctx.save();
     const sx = this.shakeAmp ? rand(-this.shakeAmp, this.shakeAmp) : 0;
@@ -173,6 +190,7 @@ class Game {
     ctx.restore();
 
     UI.drawHUD(ctx, this);
+    if (this.banner) UI.drawBanner(ctx, this.banner);
 
     if (this.state === 'GAMEOVER') this.drawGameOverPlaceholder(ctx);   // M7 换成正式结算页
 
