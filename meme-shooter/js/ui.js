@@ -88,6 +88,27 @@ const UI = {
     strokeText(ctx, b.hp + ' / ' + b.maxHp + '   阶段 ' + b.phase, bx + bw, by - 8, '#fff', 'rgba(0,0,0,0.8)', 3);
   },
 
+  // 字幕：屏幕下方，带说话人标签。语音不可用时它就是唯一的台词出口。
+  drawSubtitle(ctx, sub) {
+    const role = ROLES[sub.role], k = clamp(sub.t / 0.12, 0, 1), fade = clamp((sub.dur - sub.t) / 0.3, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = Math.min(k, fade);
+    ctx.font = 'bold 28px ' + FONT;
+    const tw = ctx.measureText(sub.text).width;
+    ctx.font = 'bold 15px ' + FONT;
+    const nw = ctx.measureText(role.name).width + 22;
+    const pw = tw + nw + 52, ph = 52, px = W / 2 - pw / 2, py = H - 72 - (1 - k) * 8;
+    ctx.fillStyle = 'rgba(10,10,20,0.78)'; rrPath(ctx, px, py, pw, ph, 14); ctx.fill();
+    ctx.strokeStyle = role.color; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = role.color; rrPath(ctx, px + 12, py + 14, nw, 24, 12); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(role.name, px + 12 + nw / 2, py + 27);
+    ctx.font = 'bold 28px ' + FONT; ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+    ctx.fillText(sub.text, px + nw + 28, py + 27);
+    ctx.restore();
+    ctx.textBaseline = 'alphabetic';
+  },
+
   // 屏幕中央的大字提示（先放大弹出，再淡出）
   drawBanner(ctx, b) {
     const k = clamp(b.t / 0.25, 0, 1), fade = clamp((b.dur - b.t) / 0.4, 0, 1);

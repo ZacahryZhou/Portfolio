@@ -59,3 +59,29 @@ const LEVELS = [
     ]
   }
 ];
+
+// 说话的角色：名字（字幕标签）+ 颜色。语音音调在 audio.js 的 VOICE_PITCH 里（主角 1.2 / 小兵 1.6 / Boss 0.7）。
+const ROLES = {
+  player: { name: 'Zachary',  color: '#4cc9f0' },
+  minion: { name: 'Bug',      color: '#9be564' },
+  boss:   { name: 'Deadline', color: '#ff4d6d' }
+};
+
+// 所有台词都在这里，想改成你和朋友之间的梗直接改字符串就行。
+// 前 8 组是方案里的初稿，后面几组是我补的（小兵、阶段切换、Ctrl+Z、护盾）。
+const LINES = {
+  start:   ["今天的作业，我一个字都不会交！", "来吧，Deadline，我准备好了。"],
+  hit:     ["哎哟！", "别打脸！", "我的脸！"],
+  kill:    ["Bug 已修复。", "下一个！", "代码审查通过。"],
+  powerup: ["续命成功！", "咖啡续一波。"],
+  bossIntro: ["你的作业呢？", "交了吗？"],
+  bossHit: ["你再写啊！", "时间不多了！"],
+  gameover: ["Deadline 又赢了。", "明天再战，今晚先睡。", "这个 Bug 我下次一定修。"],
+  win:     ["提交成功，满分！", "Deadline，你也有今天。", "我才是时间的主人。"],
+
+  minionDie: ["我的 Bug 生涯……", "报错了啊啊啊", "别 Debug 我！"],
+  phase2:  ["想跑？截止日期到了！", "我冲了啊！"],
+  phase3:  ["再来一批 Bug！", "全员加班！"],
+  ctrlz:   ["撤销！全部撤销！", "Ctrl+Z，世界清净了。"],
+  shield:  ["差点就挂了。", "护盾救我一命。"]
+};

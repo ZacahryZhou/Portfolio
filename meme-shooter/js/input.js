@@ -21,6 +21,7 @@ const Input = {
   mouseDown: false,
   clicks: [],
   anyPress: false,       // 这一帧有任意键/点击（标题页「按任意键开始」用）
+  onGesture: null,       // 第一次用户手势回调（用来启动音频）
   _canvas: null,
 
   init(canvas) {
@@ -34,6 +35,7 @@ const Input = {
       this.keys.add(e.code);
       this.pressed.add(e.code);
       this.anyPress = true;
+      if (this.onGesture) this.onGesture();
     });
     window.addEventListener('keyup', e => this.keys.delete(e.code));
 
@@ -41,6 +43,7 @@ const Input = {
       if (e.button !== 0) return;
       this.mouseDown = true;
       this.anyPress = true;
+      if (this.onGesture) this.onGesture();
       const r = canvas.getBoundingClientRect();
       this.clicks.push({ x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H });
       canvas.focus();

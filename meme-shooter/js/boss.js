@@ -18,7 +18,7 @@ class Boss {
   constructor(game, x, maxHp) {
     this.game = game;
     this.baseX = x;
-    this.x = game.camX + W + 260;       // 从屏幕右边滑进来
+    this.x = x + 320;                   // 从屏幕右边外面滑进来（锁屏后最后一屏的右边缘是 level.length）
     this.y = GROUND_Y;                  // 脚的位置
     this.maxHp = maxHp;
     this.hp = maxHp;
@@ -106,7 +106,7 @@ class Boss {
 
       if (this.phase >= 2) {
         this.chargeT -= dt;
-        if (this.chargeT <= 0) { this.chargeT = BOSS_CFG.chargeEvery; this.setState('warn'); return; }
+        if (this.chargeT <= 0) { this.chargeT = BOSS_CFG.chargeEvery; this.setState('warn'); g.sfx('warn'); return; }
       }
       if (this.phase >= 3) {
         this.summonT -= dt;
@@ -117,7 +117,7 @@ class Boss {
       // 预警：身体下蹲蓄力，地上一条红线
       this.sy = lerp(this.sy, 0.6, Math.min(1, 8 * dt));
       this.shake = 2;
-      if (this.stateT >= BOSS_CFG.warnTime) { this.dashTargetX = g.camX + 100; this.setState('dash'); g.addShake(5); }
+      if (this.stateT >= BOSS_CFG.warnTime) { this.dashTargetX = g.camX + 100; this.setState('dash'); g.addShake(5); g.sfx('dash'); }
 
     } else if (this.state === 'dash') {
       this.sy = lerp(this.sy, BOSS_CFG.dashSquash, Math.min(1, 25 * dt));
@@ -127,7 +127,7 @@ class Boss {
         this.dustT = 0.025;
         g.particles.burst(this.x + 70, GROUND_Y - 6, 3, ['#d9c7a0', '#b8a47a', '#fff'], { maxSpeed: 150, up: 140, maxSize: 10, life: 0.5 });
       }
-      if (this.x <= this.dashTargetX) { this.x = this.dashTargetX; g.addShake(10); this.setState('pause'); }
+      if (this.x <= this.dashTargetX) { this.x = this.dashTargetX; g.addShake(10); this.setState('pause'); g.sfx('slam'); }
 
     } else if (this.state === 'pause') {
       if (this.stateT >= 0.35) this.setState('return');
@@ -150,7 +150,7 @@ class Boss {
       const b = g.bullets.spawn();
       if (b) b.init('paper', ox, oy, Math.cos(a) * BOSS_CFG.bulletSpeed, Math.sin(a) * BOSS_CFG.bulletSpeed, { vr: rand(4, 8) * (i % 2 ? 1 : -1) });
     }
-    g.sfx && g.sfx('bossFire');
+    g.sfx('bossFire');
   }
 
   // 召唤飞行 Bug：从屏幕上方飞进来
@@ -163,7 +163,7 @@ class Boss {
       e.enterT = 0.9; e.enterFrom = -50;
       g.particles.ring(e.x, 40, 40, '#8d6bff');
     }
-    g.sfx && g.sfx('summon');
+    g.sfx('summon');
   }
 
   draw(ctx) {
