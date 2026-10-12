@@ -32,6 +32,9 @@ const UI = {
     ctx.textAlign = 'right';
     ctx.font = 'bold 26px ' + FONT;
     strokeText(ctx, String(game.stats.score).padStart(6, '0'), W - 20, 38);
+    if (game.boss && game.boss.state !== 'gone') {
+      this.drawBossBar(ctx, game.boss);
+    } else {
     // 关卡进度条
     const bx = W / 2 - 110, by = 24, bw = 220;
     ctx.fillStyle = 'rgba(0,0,0,0.35)'; rrPath(ctx, bx, by, bw, 8, 4); ctx.fill();
@@ -41,10 +44,27 @@ const UI = {
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(bx + bw * prog, by + 4, 6, 0, TAU); ctx.fill();
     ctx.textAlign = 'center'; ctx.font = '12px ' + FONT;
     strokeText(ctx, game.level.def.name, W / 2, by + 28, '#fff', 'rgba(0,0,0,0.7)', 3);
+    }
 
     ctx.textAlign = 'right';
     ctx.font = '14px ' + FONT;
     strokeText(ctx, '最高 ' + String(game.highScore).padStart(6, '0'), W - 20, 58, '#ffe08a', 'rgba(0,0,0,0.75)', 4);
+  },
+
+  // Boss 血条：顶部居中，名字 + 阶段刻度（60% / 30%）
+  drawBossBar(ctx, b) {
+    const bw = 440, bh = 18, bx = W / 2 - bw / 2 - 40, by = 34;
+    const k = b.hpRatio;
+    ctx.textAlign = 'left'; ctx.font = 'bold 20px ' + FONT;
+    strokeText(ctx, 'Deadline', bx, by - 8, '#ffd9de', 'rgba(0,0,0,0.85)', 5);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; rrPath(ctx, bx - 3, by - 3, bw + 6, bh + 6, 8); ctx.fill();
+    const col = k > 0.6 ? '#ffb703' : k > 0.3 ? '#fb5607' : '#e5173f';
+    ctx.fillStyle = b.flash > 0 ? '#fff' : col;
+    if (k > 0) { rrPath(ctx, bx, by, Math.max(6, bw * k), bh, 6); ctx.fill(); }
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 2;
+    for (const m of [0.6, 0.3]) { ctx.beginPath(); ctx.moveTo(bx + bw * m, by); ctx.lineTo(bx + bw * m, by + bh); ctx.stroke(); }
+    ctx.textAlign = 'right'; ctx.font = '13px ' + FONT;
+    strokeText(ctx, b.hp + ' / ' + b.maxHp + '   阶段 ' + b.phase, bx + bw, by - 8, '#fff', 'rgba(0,0,0,0.8)', 3);
   },
 
   // 屏幕中央的大字提示（先放大弹出，再淡出）

@@ -40,6 +40,7 @@ class Enemy {
       this.phase = rand(0, TAU);
       this.y = this.baseY;
       this.bombT = rand(0.8, def.bombEvery);
+      this.enterT = 0; this.enterFrom = 0;
     }
     return this;
   }
@@ -89,7 +90,13 @@ class Enemy {
       const tx = p.x + Math.sin(this.t * 0.7 + this.phase) * 230;
       const dx = tx - this.x;
       this.x += clamp(dx * 1.5, -def.speed, def.speed) * dt;
-      this.y = this.baseY + Math.sin(this.t * 2.2 + this.phase) * 40;
+      let ty = this.baseY + Math.sin(this.t * 2.2 + this.phase) * 40;
+      if (this.enterT > 0) {                 // Boss 召唤出来的：从屏幕上方飞进来
+        this.enterT -= dt;
+        const k = clamp(1 - this.enterT / 0.9, 0, 1);
+        ty = lerp(this.enterFrom, ty, 1 - Math.pow(1 - k, 3));
+      }
+      this.y = ty;
       // 每 2 秒掉一个报错弹（只在屏幕里才掉）
       this.bombT -= dt;
       if (this.bombT <= 0 && this.x > game.camX + 20 && this.x < game.camX + W - 20) {

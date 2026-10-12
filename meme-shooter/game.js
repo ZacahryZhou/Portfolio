@@ -23,6 +23,7 @@ class Game {
 
     Background.init(this.pixelScale);
     this.levelIndex = 0;
+    this.deaths = 0;                  // 累计死亡次数：每死一次，下一次 Boss 血量 -10%（最低 50%）
     this.startRun();
   }
 
@@ -31,6 +32,8 @@ class Game {
     this.state = 'PLAYING';
     this.level = new Level(LEVELS[this.levelIndex]);
     this.bossLocked = false;
+    this.boss = null;
+    this.slowT = 0;                   // 击败 Boss 的慢动作剩余（真实）秒数
     this.mood = 0;                    // 背景氛围：0 平时，1 Boss 房间
     this.banner = null;               // 屏幕中央的大字提示
     this.camX = 0;
@@ -47,12 +50,18 @@ class Game {
 
   // ---------- 更新 ----------
   update(dt) {
+    this.fps = lerp(this.fps, 1 / Math.max(dt, 0.0001), 0.05);   // 用真实 dt 算帧率
+    // 击败 Boss 后的慢动作：世界时间放慢到 30%，计时用真实时间
+    if (this.slowT > 0) {
+      this.slowT -= dt;
+      dt *= 0.3;
+      if (this.slowT <= 0) { this.winGame(); return; }
+    }
     this.time += dt;
-    this.fps = lerp(this.fps, 1 / Math.max(dt, 0.0001), 0.05);
     this.shakeAmp *= Math.pow(0.001, dt);      // 抖动衰减
     if (this.shakeAmp < 0.2) this.shakeAmp = 0;
 
-    if (this.state === 'GAMEOVER') {
+    if (this.state === 'GAMEOVER' || this.state === 'WIN') {
       this.overT += dt;
       this.particles.update(dt);
       if (Input.wasPressed('restart')) this.startRun();
@@ -65,11 +74,12 @@ class Game {
     const lv = this.level;
     p.update(dt, Input, {
       minX: this.bossLocked ? lv.lockX + 20 : this.camX + 30,
-      maxX: lv.length - 30
+      maxX: this.boss ? this.boss.baseX - 110 : lv.length - 30     // Boss 房间里不能走到 Boss 身上
     });
     if (!p.dead && Input.isDown('shoot') && p.fireCd <= 0) this.firePlayer();
 
     if (!p.dead) lv.update(this);
+    if (this.boss) this.boss.update(dt);
     this.enemies.forEach(e => e.update(dt, this));
     this.bullets.forEach(b => b.update(dt, this));
     this.collide();
@@ -81,7 +91,10 @@ class Game {
     this.mood = lerp(this.mood, this.bossLocked ? 1 : 0, Math.min(1, 2 * dt));
     if (this.banner) { this.banner.t += dt; if (this.banner.t > this.banner.dur) this.banner = null; }
 
-    if (p.dead && p.deathT > 1.2) { this.state = 'GAMEOVER'; this.overT = 0; }
+    if (p.dead && p.deathT > 1.2) {
+      this.state = 'GAMEOVER'; this.overT = 0;
+      this.deaths++;
+    }
   }
 
   // 按关卡数据刷一只怪（x 是屏幕右侧外的世界坐标）
@@ -90,11 +103,46 @@ class Game {
     if (e) e.init(spawn.t, x, GROUND_Y);
   }
 
-  // 走到关卡尽头：锁屏，进 Boss 房间（Boss 在 M4 加入）
+  // Boss 血量：基础 60，每死一次 -10%，最低 50%
+  bossMaxHp() { return Math.round(BOSS_CFG.maxHp * Math.max(0.5, 1 - 0.1 * this.deaths)); }
+
+  // 走到关卡尽头：锁屏，Boss 登场
   enterBossRoom() {
     this.bossLocked = true;
     this.state = 'BOSS';
-    this.banner = { text: 'Boss 房间', sub: '（Boss 将在 M4 登场）', t: 0, dur: 2.5 };
+    this.boss = new Boss(this, this.level.length - 150, this.bossMaxHp());
+    this.banner = { text: 'Deadline', sub: '你的作业呢？', t: 0, dur: 2.6 };
+    this.addShake(6);
+  }
+
+  onBossPhase(phase) {
+    this.addShake(10);
+    this.particles.ring(this.boss.x, GROUND_Y - 170, 90, '#ffd166');
+    this.banner = phase === 2
+      ? { text: '第二阶段', sub: 'Deadline 开始冲撞了！看到红线就跳', t: 0, dur: 2.2 }
+      : { text: '第三阶段', sub: 'Deadline 召唤了 Bug 大军！', t: 0, dur: 2.2 };
+  }
+
+  // Boss 血量归零：清场 + 慢动作 + 全屏爆炸，之后进通关页
+  bossDefeated() {
+    const b = this.boss;
+    b.setState('dying');
+    this.bullets.clear();
+    this.enemies.forEach(e => { const c = e.hit; this.particles.burst(c.x, c.y, 10, ['#9be564', '#56a832', '#ffd166', '#fff']); e.active = false; });
+    this.addScore(2000, b.x, 200);
+    this.player.invuln = 99;
+    this.slowT = 1.5;
+    this.addShake(14);
+    this.particles.burst(b.x, GROUND_Y - 170, 70, ['#ff4d4d', '#ffd166', '#fff', '#ff9f1c'], { maxSpeed: 560, maxSize: 16, life: 1.4 });
+    this.particles.ring(b.x, GROUND_Y - 170, 160, '#fff');
+  }
+
+  winGame() {
+    this.state = 'WIN';
+    this.overT = 0;
+    this.boss.state = 'gone';
+    this.deaths = 0;                  // 通关后重置「死亡减血」
+    this.particles.clear();
   }
 
   firePlayer() {
@@ -111,6 +159,7 @@ class Game {
   collide() {
     const p = this.player;
     const bl = this.bullets.items, en = this.enemies.items;
+    const boss = this.boss && this.boss.active ? this.boss : null;
 
     for (let i = 0; i < bl.length; i++) {
       const b = bl[i];
@@ -122,10 +171,19 @@ class Game {
           const h = e.hit;
           if (circleHit(b.x, b.y, b.r, h.x, h.y, h.r)) { b.active = false; this.damageEnemy(e, 1, b.x, b.y); break; }
         }
+        if (b.active && boss && boss.vulnerable) {
+          const bb = boss.hitBox;
+          if (circleRect(b.x, b.y, b.r, bb.x, bb.y, bb.w, bb.h)) { b.active = false; this.damageBoss(1, b.x, b.y); }
+        }
       } else if (!p.dead && circleHit(b.x, b.y, b.r, p.coreX, p.coreY, p.coreR)) {
         b.active = false;
         this.hitPlayer(b.x);
       }
+    }
+
+    if (!p.dead && boss) {
+      const hb = boss.hurtBox;
+      if (hb && circleRect(p.coreX, p.coreY, p.coreR, hb.x, hb.y, hb.w, hb.h)) this.hitPlayer(boss.x);
     }
 
     if (!p.dead) {
@@ -136,6 +194,14 @@ class Game {
         if (h && circleHit(h.x, h.y, h.r, p.coreX, p.coreY, p.coreR)) this.hitPlayer(e.x);
       }
     }
+  }
+
+  damageBoss(dmg, hx, hy) {
+    const b = this.boss;
+    if (!b.takeHit(dmg)) return;
+    this.stats.score += 20;
+    this.particles.burst(hx, hy, 5, ['#fff', '#ffe08a', '#ff9f1c'], { maxSpeed: 220, maxSize: 6, life: 0.4 });
+    if (b.hp <= 0) this.bossDefeated();
   }
 
   damageEnemy(e, dmg, hx, hy) {
@@ -183,6 +249,7 @@ class Game {
     const sx = this.shakeAmp ? rand(-this.shakeAmp, this.shakeAmp) : 0;
     const sy = this.shakeAmp ? rand(-this.shakeAmp, this.shakeAmp) : 0;
     ctx.translate(-Math.round(this.camX) + sx, sy);
+    if (this.boss && this.boss.active) this.boss.draw(ctx);
     this.enemies.forEach(e => e.draw(ctx));
     this.player.draw(ctx, this.time);
     this.bullets.forEach(b => b.draw(ctx));
@@ -193,12 +260,22 @@ class Game {
     if (this.banner) UI.drawBanner(ctx, this.banner);
 
     if (this.state === 'GAMEOVER') this.drawGameOverPlaceholder(ctx);   // M7 换成正式结算页
+    if (this.state === 'WIN') this.drawWinPlaceholder(ctx);
 
     if (this.debug) {
       ctx.fillStyle = '#000'; ctx.font = '14px monospace'; ctx.textAlign = 'left';
       ctx.fillText('FPS ' + this.fps.toFixed(0) + '  x=' + this.player.x.toFixed(0) +
-        '  bullets=' + this.bullets.count() + ' enemies=' + this.enemies.count(), 10, 76);
+        '  bullets=' + this.bullets.count() + ' enemies=' + this.enemies.count() +
+        (this.boss ? '  boss=' + this.boss.hp + '/' + this.boss.maxHp + ' ' + this.boss.state + ' p' + this.boss.phase : ''), 10, 76);
     }
+  }
+
+  drawWinPlaceholder(ctx) {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center'; ctx.font = 'bold 48px ' + FONT;
+    strokeText(ctx, 'Deadline 被你搞定了', W / 2, H / 2 - 10, '#ffe08a');
+    ctx.font = '22px ' + FONT;
+    strokeText(ctx, '得分 ' + this.stats.score + '    按 R 再来一次', W / 2, H / 2 + 40);
   }
 
   drawGameOverPlaceholder(ctx) {
