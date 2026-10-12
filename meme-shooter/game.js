@@ -60,6 +60,22 @@ class Game {
     this.overT = 0;
   }
 
+  // ---------- 暂停 ----------
+  pause() {
+    if (this.state !== 'PLAYING' && this.state !== 'BOSS') return;
+    this.prevState = this.state;
+    this.state = 'PAUSED';
+    Input.releaseAll();                                  // 松开所有按住的键，恢复后不会一直在跑
+    GameAudio.stopSpeech();
+    try { if (GameAudio.ctx && GameAudio.ctx.state === 'running') GameAudio.ctx.suspend(); } catch (e) { /* ignore */ }
+  }
+
+  resume() {
+    if (this.state !== 'PAUSED') return;
+    this.state = this.prevState;
+    try { if (GameAudio.ctx && GameAudio.ctx.state === 'suspended') GameAudio.ctx.resume(); } catch (e) { /* ignore */ }
+  }
+
   // ---------- 画面切换 ----------
   beginPlay() {
     this.startRun();
@@ -118,6 +134,17 @@ class Game {
   update(dt) {
     this.realDt = dt;
     this.fps = lerp(this.fps, 1 / Math.max(dt, 0.0001), 0.05);   // 用真实 dt 算帧率
+
+    if (Input.wasPressed('mute')) {
+      const m = GameAudio.toggleMute();
+      this.particles.text(this.camX + W - 90, 110, m ? '静音（M 开启）' : '声音已开启', '#fff', 18);
+    }
+    if (this.state === 'PAUSED') {                       // 暂停：什么都不更新，只等恢复
+      if (Input.wasPressed('pause')) this.resume();
+      return;
+    }
+    if ((this.state === 'PLAYING' || this.state === 'BOSS') && Input.wasPressed('pause')) { this.pause(); return; }
+
     // 击败 Boss 后的慢动作：世界时间放慢到 30%，计时用真实时间
     if (this.slowT > 0) {
       this.slowT -= dt;
@@ -125,7 +152,6 @@ class Game {
       if (this.slowT <= 0) { this.winGame(); return; }
     }
     this.time += dt;
-    if (Input.wasPressed('mute')) { const m = GameAudio.toggleMute(); this.particles.text(this.camX + W - 70, 110, m ? '静音（M 开启）' : '声音已开启', '#fff', 18); }
     for (const k in this.sayCd) if (this.sayCd[k] > 0) this.sayCd[k] -= dt;
     if (this.subtitle) { this.subtitle.t += dt; if (this.subtitle.t > this.subtitle.dur) this.subtitle = null; }
     this.shakeAmp *= Math.pow(0.001, dt);      // 抖动衰减
@@ -148,10 +174,12 @@ class Game {
     this.stats.time += dt;
 
     const lv = this.level;
+    const wasAir = !p.onGround;
     p.update(dt, Input, {
       minX: this.bossLocked ? lv.lockX + 20 : this.camX + 30,
       maxX: this.boss ? this.boss.baseX - 110 : lv.length - 30     // Boss 房间里不能走到 Boss 身上
     });
+    if (wasAir && p.onGround && !p.dead) this.particles.burst(p.x, GROUND_Y - 3, 5, ['#d9c7a0', '#b8a47a', '#fff'], { maxSpeed: 110, up: 40, maxSize: 7, life: 0.35 });
     if (!p.dead && Input.isDown('shoot') && p.fireCd <= 0) this.firePlayer();
     if (!p.dead && Input.wasPressed('special') && p.ctrlz > 0) this.useCtrlZ();
     this.flashT = Math.max(0, this.flashT - dt);
@@ -239,6 +267,7 @@ class Game {
     const p = this.player;
     p.fireCd = PLAYER_CFG.fireInterval * (p.fx.coffee > 0 ? 0.5 : 1);
     this.sfx('shoot');
+    this.particles.burst(p.x + p.facing * 40, p.y - 42, 3, ['#fff', '#ffe08a'], { maxSpeed: 120, maxSize: 4, life: 0.18, up: 0 });
     const offsets = p.fx.double > 0 ? [-9, 9] : [0];      // 双发：上下错开
     for (const o of offsets) {
       const b = this.bullets.spawn();
@@ -297,6 +326,7 @@ class Game {
 
   damageBoss(dmg, hx, hy) {
     const b = this.boss;
+    if (this.player.dead) return;     // 主角已经死了，空中残留的子弹不再算数（否则会「死了还通关」）
     if (!b.takeHit(dmg)) return;
     this.stats.score += 20;
     this.sfx('hit');
@@ -442,7 +472,7 @@ class Game {
     UI.drawHUD(ctx, this);
     if (this.banner) UI.drawBanner(ctx, this.banner);
     if (this.subtitle) UI.drawSubtitle(ctx, this.subtitle);
-
+    if (this.state === 'PAUSED') UI.drawPause(ctx);
 
     if (this.debug) {
       ctx.fillStyle = '#000'; ctx.font = '14px monospace'; ctx.textAlign = 'left';
@@ -463,6 +493,10 @@ class Game {
   Assets.load().then(() => {
     const game = new Game(canvas);
     window.__game = game;   // 方便在控制台调试 / 自动化测试
+
+    const autoPause = () => game.pause();
+    document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+    window.addEventListener('blur', autoPause);
 
     let last = performance.now();
     function frame(now) {

@@ -34,23 +34,24 @@ const UI = {
     ctx.textAlign = 'right';
     ctx.font = 'bold 26px ' + FONT;
     strokeText(ctx, String(game.stats.score).padStart(6, '0'), W - 20, 38);
-    if (game.boss && game.boss.state !== 'gone') {
-      this.drawBossBar(ctx, game.boss);
-    } else {
-    // 关卡进度条
-    const bx = W / 2 - 110, by = 24, bw = 220;
-    ctx.fillStyle = 'rgba(0,0,0,0.35)'; rrPath(ctx, bx, by, bw, 8, 4); ctx.fill();
-    const prog = clamp(p.x / game.level.length, 0, 1);
-    ctx.fillStyle = '#ffd166'; rrPath(ctx, bx, by, Math.max(8, bw * prog), 8, 4); ctx.fill();
-    ctx.fillStyle = '#ff3860'; ctx.beginPath(); ctx.arc(bx + bw, by + 4, 8, 0, TAU); ctx.fill();   // 终点 = Boss
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(bx + bw * prog, by + 4, 6, 0, TAU); ctx.fill();
-    ctx.textAlign = 'center'; ctx.font = '12px ' + FONT;
-    strokeText(ctx, game.level.def.name, W / 2, by + 28, '#fff', 'rgba(0,0,0,0.7)', 3);
-    }
+    if (game.boss && game.boss.state !== 'gone') this.drawBossBar(ctx, game.boss);
+    else this.drawProgress(ctx, game);
 
     ctx.textAlign = 'right';
     ctx.font = '14px ' + FONT;
     strokeText(ctx, '最高 ' + String(game.highScore).padStart(6, '0'), W - 20, 58, '#ffe08a', 'rgba(0,0,0,0.75)', 4);
+  },
+
+  // 关卡进度条：白点 = 主角，右端红点 = Boss
+  drawProgress(ctx, game) {
+    const bx = W / 2 - 110, by = 24, bw = 220;
+    const prog = clamp(game.player.x / game.level.length, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; rrPath(ctx, bx, by, bw, 8, 4); ctx.fill();
+    ctx.fillStyle = '#ffd166'; rrPath(ctx, bx, by, Math.max(8, bw * prog), 8, 4); ctx.fill();
+    ctx.fillStyle = '#ff3860'; ctx.beginPath(); ctx.arc(bx + bw, by + 4, 8, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(bx + bw * prog, by + 4, 6, 0, TAU); ctx.fill();
+    ctx.textAlign = 'center'; ctx.font = '12px ' + FONT;
+    strokeText(ctx, game.level.def.name, W / 2, by + 28, '#fff', 'rgba(0,0,0,0.7)', 3);
   },
 
   // 道具图标：限时的带倒计时圈，护盾常驻，Ctrl+Z 提示按 K
@@ -86,6 +87,18 @@ const UI = {
     for (const m of [0.6, 0.3]) { ctx.beginPath(); ctx.moveTo(bx + bw * m, by); ctx.lineTo(bx + bw * m, by + bh); ctx.stroke(); }
     ctx.textAlign = 'right'; ctx.font = '13px ' + FONT;
     strokeText(ctx, b.hp + ' / ' + b.maxHp + '   阶段 ' + b.phase, bx + bw, by - 8, '#fff', 'rgba(0,0,0,0.8)', 3);
+  },
+
+  drawPause(ctx) {
+    ctx.fillStyle = 'rgba(5,8,25,0.66)'; ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.font = 'bold 64px ' + FONT;
+    strokeText(ctx, '已暂停', W / 2, 190, '#fff', 'rgba(0,0,0,0.8)', 9);
+    ctx.font = '26px ' + FONT;
+    strokeText(ctx, '按 P 或 Esc 继续', W / 2, 250, '#ffe08a');
+    ctx.font = '20px ' + FONT;
+    const rows = ['A / D 或 ← / →   移动', 'W / ↑ / 空格   跳跃', 'J 或 鼠标左键（按住连发）   射击', 'K   使用 Ctrl+Z 大招', 'M   静音 / 开声音'];
+    rows.forEach((r, i) => strokeText(ctx, r, W / 2, 308 + i * 34, '#e6ecff', 'rgba(0,0,0,0.8)', 4));
   },
 
   // 字幕：屏幕下方，带说话人标签。语音不可用时它就是唯一的台词出口。
