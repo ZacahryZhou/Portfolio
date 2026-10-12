@@ -27,6 +27,8 @@ const UI = {
       drawHeart(ctx, 38 + i * 44, 36, 15, i < p.hp ? '#ff3860' : 'rgba(0,0,0,0.35)', i < p.hp ? '#7a0f25' : 'rgba(255,255,255,0.4)');
     }
 
+    this.drawPowerBar(ctx, p);
+
     // 分数
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'right';
@@ -49,6 +51,25 @@ const UI = {
     ctx.textAlign = 'right';
     ctx.font = '14px ' + FONT;
     strokeText(ctx, '最高 ' + String(game.highScore).padStart(6, '0'), W - 20, 58, '#ffe08a', 'rgba(0,0,0,0.75)', 4);
+  },
+
+  // 道具图标：限时的带倒计时圈，护盾常驻，Ctrl+Z 提示按 K
+  drawPowerBar(ctx, p) {
+    const items = [];
+    if (p.fx.coffee > 0) items.push({ type: 'coffee', k: p.fx.coffee / POWER_DEF.coffee.dur, label: Math.ceil(p.fx.coffee) + 's' });
+    if (p.fx.double > 0) items.push({ type: 'double', k: p.fx.double / POWER_DEF.double.dur, label: Math.ceil(p.fx.double) + 's' });
+    if (p.shield) items.push({ type: 'shield', k: 1, label: '' });
+    if (p.ctrlz > 0) items.push({ type: 'ctrlz', k: 1, label: '按 K' });
+    let x = 38;
+    for (const it of items) {
+      const y = 82, d = POWER_DEF[it.type];
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.arc(x, y, 20, 0, TAU); ctx.fill();
+      ctx.strokeStyle = d.color; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(x, y, 20, -Math.PI / 2, -Math.PI / 2 + TAU * it.k); ctx.stroke();
+      drawPowerIcon(ctx, it.type, x, y, 13);
+      if (it.label) { ctx.textAlign = 'center'; ctx.font = 'bold 12px ' + FONT; strokeText(ctx, it.label, x, y + 36, '#fff', 'rgba(0,0,0,0.8)', 3); }
+      x += 50;
+    }
   },
 
   // Boss 血条：顶部居中，名字 + 阶段刻度（60% / 30%）

@@ -19,6 +19,7 @@ class Game {
     this.player = new Player();
     this.bullets = new Pool(() => new Bullet(), 200);
     this.enemies = new Pool(() => new Enemy(), 80);
+    this.powerups = new Pool(() => new PowerUp(), 24);
     this.particles = new ParticleSystem();
 
     Background.init(this.pixelScale);
@@ -43,6 +44,9 @@ class Game {
     this.bullets.clear();
     this.enemies.clear();
     this.particles.clear();
+    this.powerups.clear();
+    this.heartOwed = false;           // 只剩 1 颗心时，下一个被打死的小兵必掉爱心
+    this.flashT = 0;                  // Ctrl+Z 的全屏白闪
     this.overT = 0;
   }
 
@@ -77,11 +81,14 @@ class Game {
       maxX: this.boss ? this.boss.baseX - 110 : lv.length - 30     // Boss 房间里不能走到 Boss 身上
     });
     if (!p.dead && Input.isDown('shoot') && p.fireCd <= 0) this.firePlayer();
+    if (!p.dead && Input.wasPressed('special') && p.ctrlz > 0) this.useCtrlZ();
+    this.flashT = Math.max(0, this.flashT - dt);
 
     if (!p.dead) lv.update(this);
     if (this.boss) this.boss.update(dt);
     this.enemies.forEach(e => e.update(dt, this));
     this.bullets.forEach(b => b.update(dt, this));
+    this.powerups.forEach(u => u.update(dt, this));
     this.collide();
     this.particles.update(dt);
 
@@ -181,6 +188,14 @@ class Game {
       }
     }
 
+    if (!p.dead) {
+      const pu = this.powerups.items;
+      for (let i = 0; i < pu.length; i++) {
+        const u = pu[i];
+        if (u.active && circleRect(u.x, u.y, u.r, p.x - 24, p.y - 100, 48, 100)) { u.active = false; this.pickup(u); }
+      }
+    }
+
     if (!p.dead && boss) {
       const hb = boss.hurtBox;
       if (hb && circleRect(p.coreX, p.coreY, p.coreR, hb.x, hb.y, hb.w, hb.h)) this.hitPlayer(boss.x);
@@ -215,11 +230,61 @@ class Game {
     if (e.type === 'crate') {
       this.particles.burst(c.x, c.y, 16, ['#c98a4b', '#8a5a2b', '#6b4220', '#ffd60a']);
       this.addScore(50, c.x, c.y - 30);
+      this.dropPower(c.x, c.y, rollPower(this.player.hp >= PLAYER_CFG.maxHp));     // 道具箱必掉
       return;
     }
     this.particles.burst(c.x, c.y, 14, ['#9be564', '#56a832', '#3f7d1f', '#ffd166', '#fff']);
     this.addScore(100, c.x, c.y - 30);
     this.stats.kills++;
+
+    // 15% 概率掉道具；快没血时下一个必掉爱心
+    const p = this.player;
+    if (this.heartOwed && p.hp < PLAYER_CFG.maxHp) { this.dropPower(c.x, c.y, 'heart'); this.heartOwed = false; }
+    else if (Math.random() < POWER_DROP_RATE) this.dropPower(c.x, c.y, rollPower(p.hp >= PLAYER_CFG.maxHp));
+  }
+
+  dropPower(x, y, type) {
+    const u = this.powerups.spawn();
+    if (u) u.init(type, x, y - 10);
+  }
+
+  pickup(u) {
+    const p = this.player, d = POWER_DEF[u.type];
+    this.particles.burst(u.x, u.y, 10, [d.color, '#fff'], { maxSpeed: 220, maxSize: 7 });
+    this.particles.ring(u.x, u.y, 40, d.color);
+    let msg = d.name;
+    if (u.type === 'coffee' || u.type === 'double') p.fx[u.type] = d.dur;              // 重复拾取 = 刷新到 10 秒
+    else if (u.type === 'shield') p.shield = true;
+    else if (u.type === 'ctrlz') {
+      if (p.ctrlz >= 1) { this.addScore(300); msg = 'Ctrl+Z 已满 +300'; } else { p.ctrlz = 1; msg = 'Ctrl+Z（按 K）'; }
+    } else if (u.type === 'heart') {
+      if (p.hp < PLAYER_CFG.maxHp) { p.hp++; this.heartOwed = false; } else { this.addScore(200); msg = '心满了 +200'; }
+    }
+    this.particles.text(p.x, p.y - 120, msg, '#fff', 22);
+  }
+
+  // Ctrl+Z 大招：清除屏幕上所有小兵和敌方子弹（Boss 不受影响，道具箱也不碰）
+  useCtrlZ() {
+    const p = this.player;
+    p.ctrlz--;
+    this.flashT = 0.35;
+    this.addShake(8);
+    this.particles.ring(p.x, p.y - 60, 80, '#fff');
+    this.particles.text(p.x, p.y - 130, 'Ctrl + Z', '#e9ecef', 30);
+    const x0 = this.camX - 40, x1 = this.camX + W + 40;
+    this.enemies.forEach(e => {
+      if (e.type === 'crate' || e.x < x0 || e.x > x1) return;
+      e.active = false;
+      const c = e.hit;
+      this.particles.burst(c.x, c.y, 12, ['#9be564', '#56a832', '#ffd166', '#fff']);
+      this.addScore(100, c.x, c.y - 30);
+      this.stats.kills++;
+    });
+    this.bullets.forEach(b => {
+      if (b.friendly) return;
+      b.active = false;
+      this.particles.burst(b.x, b.y, 4, ['#fff', '#ffe08a'], { maxSpeed: 160, maxSize: 5, life: 0.4 });
+    });
   }
 
   addScore(n, x, y) {
@@ -230,8 +295,17 @@ class Game {
   hitPlayer(srcX) {
     const p = this.player;
     if (p.invuln > 0 || p.dead || this.godMode) return;
+    if (p.shield) {                   // 护盾抵挡 1 次伤害
+      p.shield = false;
+      p.invuln = 0.8;
+      this.addShake(4);
+      this.particles.burst(p.coreX, p.coreY, 14, ['#8ecbff', '#fff', '#4895ef'], { maxSpeed: 260 });
+      this.particles.ring(p.coreX, p.coreY, 60, '#8ecbff');
+      return;
+    }
     p.invuln = PLAYER_CFG.invuln;
     p.hp--;
+    if (p.hp === 1) this.heartOwed = true;
     this.stats.hits++;
     this.addShake(9);
     this.particles.burst(p.coreX, p.coreY, 10, ['#ff3860', '#fff', '#ffd166'], { maxSpeed: 260 });
@@ -250,11 +324,14 @@ class Game {
     const sy = this.shakeAmp ? rand(-this.shakeAmp, this.shakeAmp) : 0;
     ctx.translate(-Math.round(this.camX) + sx, sy);
     if (this.boss && this.boss.active) this.boss.draw(ctx);
+    this.powerups.forEach(u => u.draw(ctx));
     this.enemies.forEach(e => e.draw(ctx));
     this.player.draw(ctx, this.time);
     this.bullets.forEach(b => b.draw(ctx));
     this.particles.draw(ctx);
     ctx.restore();
+
+    if (this.flashT > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (this.flashT / 0.35 * 0.8) + ')'; ctx.fillRect(0, 0, W, H); }
 
     UI.drawHUD(ctx, this);
     if (this.banner) UI.drawBanner(ctx, this.banner);
@@ -265,8 +342,8 @@ class Game {
     if (this.debug) {
       ctx.fillStyle = '#000'; ctx.font = '14px monospace'; ctx.textAlign = 'left';
       ctx.fillText('FPS ' + this.fps.toFixed(0) + '  x=' + this.player.x.toFixed(0) +
-        '  bullets=' + this.bullets.count() + ' enemies=' + this.enemies.count() +
-        (this.boss ? '  boss=' + this.boss.hp + '/' + this.boss.maxHp + ' ' + this.boss.state + ' p' + this.boss.phase : ''), 10, 76);
+        '  pu=' + this.powerups.count() + '  bullets=' + this.bullets.count() + ' enemies=' + this.enemies.count() +
+        (this.boss ? '  boss=' + this.boss.hp + '/' + this.boss.maxHp + ' ' + this.boss.state + ' p' + this.boss.phase : ''), 10, H - 10);
     }
   }
 
